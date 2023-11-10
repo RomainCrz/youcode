@@ -41,18 +41,6 @@ model Session {
   @@map("sessions")
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-}
-
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -62,22 +50,91 @@ model VerificationToken {
   @@map("verificationtokens")
 }
 
-// J'ai suivi la documentation du nouveau [Prisma Adapter](https://authjs.dev/reference/adapter/prisma).
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-// Crée aussi un fichier :
+  accounts       Account[]
+  sessions       Session[]
+  ownedCourses   CourseOnUser[]
+  createdCourses Course[]
+  lessons        LessonOnUser[]
+}
 
-// ts
-// // src/lib/auth.ts
-// import { GetServerSidePropsContext, NextApiRequest, NextApiResponse } from 'next';
-// import { getServerSession } from 'next-auth';
-// import { authOptions } from '../../pages/api/auth/[...nextauth]';
+model Course {
+  id           String      @id @default(cuid())
+  name         String
+  presentation String // markdown
+  image        String
+  createdAt    DateTime    @default(now())
+  creatorId    String
+  state        CourseState @default(DRAFT)
 
-// type ParametersGetServerSession =
-//   | []
-//   | [GetServerSidePropsContext['req'], GetServerSidePropsContext['res']]
-//   | [NextApiRequest, NextApiResponse];
+  creator User           @relation(fields: [creatorId], references: [id])
+  lessons Lesson[]
+  users   CourseOnUser[]
+}
 
-// export const getAuthSession = async (...parameters: ParametersGetServerSession) => {
-//   const session = await getServerSession(...parameters, authOptions);
-//   return session;
-// };
+enum CourseState {
+  DRAFT
+  PUBLISHED
+}
+
+model Lesson {
+  id      String      @id @default(cuid())
+  name    String
+  rank    String // A string that represents the order of the lesson
+  content String // markdown
+  state   LessonState @default(HIDDEN)
+
+  createdAt DateTime       @default(now())
+  course    Course         @relation(fields: [courseId], references: [id])
+  courseId  String
+  users     LessonOnUser[]
+}
+
+enum LessonState {
+  HIDDEN
+  PUBLISHED
+  PUBLIC
+}
+
+model LessonOnUser {
+  id        String   @id @default(cuid())
+  userId    String
+  lessonId  String
+  progress  Progress @default(NOT_STARTED)
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  lesson Lesson @relation(fields: [lessonId], references: [id])
+
+  @@unique([userId, lessonId])
+}
+
+enum Progress {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model CourseOnUser {
+  id         String    @id @default(cuid())
+  userId     String
+  courseId   String
+  createdAt  DateTime  @default(now())
+  canceledAt DateTime?
+
+  user   User   @relation(fields: [userId], references: [id])
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@unique([userId, courseId])
+}
+
+
+
